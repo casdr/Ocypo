@@ -28,14 +28,22 @@ class home
     SITE::redirect("home/url");
   }
 
-  public function url()
+  public function base_url()
   {
-    echo SITE::generateURL("home");
+    echo BASE . __CLASS . '/' . __FUNCTION;
   }
 
   public function asset()
   {
     echo htmlentities( SITE::asset("style.css") );
+  }
+
+  public function test()
+  {
+    self::base_url();
+    echo "<br />";
+    echo site::a(BASE."test/wtf?arg1=wut&arg2=wow", 'Route Example')."<br />";
+    var_dump(input::get());
   }
 }
 ?>

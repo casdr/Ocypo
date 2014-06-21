@@ -14,7 +14,7 @@ abstract class error
    */
 
   public static $log = true;
-  public static $debug = false;
+  public static $customPages = false;
   public static $exclude = array();
 
   public static function fatalHandler()
@@ -25,7 +25,8 @@ abstract class error
 
   public static function log($log, $i = 0)
   {
-    error_log($log, $i);
+    if(self::$log === true and ini_get('log_errors'))
+      error_log($log, $i);
   }
 
   public static function errorHandler($errno, $errstr, $errfile, $errline)
@@ -77,7 +78,7 @@ abstract class error
     }
     else
     {
-      $log = 'Error: '.$errstr.'. File: '.$errfile.' on line: '.$errline.'.';
+      $log = '1Error: '.$errstr.'. File: '.$errfile.' on line: '.$errline.'.';
       self::log($log);
     }
 
@@ -89,10 +90,9 @@ abstract class error
   {
     if(ob_get_contents()) ob_end_clean();
     $log = 'Error: '.$exception->getMessage().'. File: '.$exception->getFile().' on line: '.$exception->getLine().'.';
-    if(self::$debug)$log .= "\n".$exception->getTraceAsString();
+    $log .= "\n".$exception->getTraceAsString();
     $log .= "\r\n";
-    if(self::$log === true and ini_get('log_errors'))
-      self::log($log, 0);
+    self::log($log);
 
     $errorTrace = $exception->getTrace();
 ?>
@@ -100,6 +100,8 @@ abstract class error
 <html>
 <head>
   <title>Whoops! We've found an error...</title>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <meta name="copyright" content="NielsMeijer.eu" />
 </head>
 <body>
 <style type="text/css">
@@ -227,18 +229,17 @@ table {
   <ul id="trace">
     <h3>Error Exception Trace</h3>
 <?php
-$first = array_shift($errorTrace);
 $fileLocation = $exception->getFile();
 $fileLine = $exception->getLine();
+$first = array_shift($errorTrace);
 if(!isset($first["args"][2]))
 {
   $fileLocation = $first["file"];
-  $fileLine = $first["line"];
 }
-echo "<li>";
-  echo 'File: '.$fileLocation.' ('.$first["line"].')<br/>';
-  echo '<b>'.$first["args"][1].'</b>';
-echo "</li>";
+  echo "<li>";
+    echo 'File: '.$fileLocation.' ('.$fileLine.')<br/>';
+    echo '<b>'.$first["args"][1].'</b>';
+  echo "</li>";
 
 foreach($errorTrace as $trace)
 {
@@ -291,7 +292,11 @@ if($fileLocation)
 /* request data */
 echo '<div id="data"><h3>Server/Request Data</h3><table>';
 $even = false;
-$data = array_merge($_GET, $_POST, $_SERVER);
+$_CUSTOM = array(
+  'MEMORY_USAGE' => (memory_get_peak_usage(true) /1024 ).' KB',
+  'EXECUTION_TIME' => (round((microtime(true) - TIME) * 1000, 2)).' MS',
+  );
+$data = array_merge($_CUSTOM, $_GET, $_POST, $_SERVER);
 foreach($data as $type => $value)
 {
   if(is_array($value))$value = implode(', ', $value);
@@ -312,6 +317,14 @@ exit();
   {
     if(ob_get_contents()) ob_end_clean();
     $code = (is_integer($code)) ? $code : 404;
+
+    #Check if a custom error page has been set
+    if(self::$customPages !== false and method_exists(self::$customPages, '__'.$code))
+    {
+      call_user_func(array(self::$customPages, '__'.$code), $text);
+    }
+    else
+    {
     $cmess = array(
       '300'=>'Multiple Choices',
       '301'=>'Moved Permanently',
@@ -330,7 +343,7 @@ exit();
   <head>
     <title>ERROR</title>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    <meta name="copyright" content="Easy Networking Solutions Ltd" />
+    <meta name="copyright" content="NielsMeijer.eu" />
 <style type="text/css">
 * {
   margin: 0;
@@ -380,7 +393,7 @@ p {
   <body>
     <div id="container">
 <?php if($code > 0) echo '<h1>ERROR '.$code.'</h1><p>'.$cmess[$code].'</p>'; ?>
-      <h2><?=$text;?></h2>
+      <h2><?php echo $text; ?></h2>
     </div>
   <div id="footer">
     All rights reserved | <a href="http://nielsmeijer.eu">NielsMeijer</a>
@@ -388,6 +401,7 @@ p {
   </body>
 </html>
     <?php
-exit();
+    }
+  exit();
   }
 }

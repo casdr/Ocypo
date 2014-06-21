@@ -1,6 +1,7 @@
 <?php
 define('BASE', 'http://'.$_SERVER['SERVER_NAME'].substr($_SERVER["SCRIPT_NAME"], 0, -9));
-define('VERSION', '8.1');
+define('VERSION', '8.2');
+define('TIME', microtime(true));
 
 foreach(glob("./base/*.php") as $file)
   include($file);
@@ -18,18 +19,30 @@ $uri      = SITE::getURI();
 $class    = array_shift($uri);
 $function = array_shift($uri);
 $args     = $uri;
-if(strpos($class, '?') !== false) $class = explode('?', $class)[0];
+
+#typically only used when shiftfunc is enabled.
+if(strpos($class, '?')    !== false) $class    = explode('?', $class)[0];
 if(strpos($function, '?') !== false) $function = explode('?', $function)[0];
 
+#set function and replace - with _.
+$function = str_replace('-', '_', $function);
+if(empty($function) or substr($function, 0, 2) == '__')
+  $function = 'index';
+
 #check if a route exists for the current path, these will override controllers.
-if(array_key_exists($class, $routes))
-  $class = $routes[$class];
+route::check($class, $function);
+$class = route::getClass();
+$function = route::getFunction();
 
-#before we do anything make sure these private arrays can never be called!
-unset($routes);
+#Add constants for function and class.
+#You really should use route::getFunction() or route::getClass() though;
+define('__FUNCTION', $function);
+define('__CLASS', $class);
 
+#load external libaries.
 SITE::addDir('./libaries');
 
+#Execute the magic!
 if($class != "" and file_exists('./controllers/'.$class.'.php'))
 {  
   $models = SITE::openDir('./models', array('php'), true);
@@ -37,23 +50,14 @@ if($class != "" and file_exists('./controllers/'.$class.'.php'))
   foreach($models as $model)
     include('./models/'.$model);
 
-  Auth::getSession();
-  Lang::getLocale();
-
   include('./controllers/'.$class.'.php');
-  $private = array('__construct', '__destruct');
   $$class = new $class();
-  $function = str_replace('-', '_', $function);
-  if(empty($function) or in_array($function, $private))
-    $function = 'index';
-
-  define('__FUNCTION', $function);
-  define('__CLASS', $class);
 
   if(method_exists($$class, $function))
     call_user_func_array(array($$class, $function), $args);
   elseif(method_exists($$class, 'index') and ($config['shiftFunc'] === true or (is_array($config['shiftFunc']) and in_array($class, $config['shiftFunc']))))
   {
+    #Undo the function magic we applied earlier and push it back on the args stack!
     array_unshift($args, str_replace('_', '-', $function));
     call_user_func_array(array($$class, 'index'), $args);
   }

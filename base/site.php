@@ -2,7 +2,6 @@
 class SITE
 {
   /**
-   * generateURL(<string> controller/view)
    * redirect(<string> controller/view)
    * isMobile(void)
    * opendir(<string> path to open[, <array> only open files in array[, <bool> return list]])
@@ -65,7 +64,7 @@ class SITE
   public static function asset($link, $ext = '')
   {
     $exp = explode('.', $link);
-    $ext = (empty($ext)) ? $exp[end($exp)] : $ext;
+    $ext = (empty($ext)) ? end($exp) : $ext;
 
     $extToType = array(
                   'js'  => '<script type="text/javascript" src=";;"></script>',
@@ -78,7 +77,7 @@ class SITE
     else
       $http = BASE.'assets/'.$ext.'/'.$link;
 
-    $link = str_replace(';;', $http, $extToType[$ext]);
+    $link = @str_replace(';;', $http, $extToType[$ext]);
     return $link;
   }
 
@@ -93,9 +92,13 @@ class SITE
         $path = substr($path, 0, -1);
       $http = BASE.'assets/'.$path.'/'.$link;
     }
-    
-    $exp = explode('.', $link);
-    $alt = $exp[count($exp)-2];
+
+    $alt = $link;
+    if(strpos($link, '.') !== false)
+    {
+      $exp = explode('.', $link);
+      $alt = $exp[count($exp)-2];
+    }
 
     $str = "";
     if(count($args)>0)
